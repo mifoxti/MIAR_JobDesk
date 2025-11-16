@@ -1,0 +1,5 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+aio-pika
+# alembic  # если понадобится для БД

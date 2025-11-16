@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+aio-pika
+psycopg2-binary
+sqlalchemy>=1.4.0

@@ -1,0 +1,46 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  service-notifications:
+    build: ./service-notifications
+    ports:
+      - "8001:8000"
+    environment:
+      - AMQP_URL=amqp://guest:guest@rabbitmq:5672/
+      - POSTGRES_URL=postgresql://user:pass@db:5432/notifications  # placeholder
+    depends_on:
+      - rabbitmq
+
+  db-payment:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=payments
+    ports:
+      - "5433:5432"  # Different port to avoid conflict with main DB
+    volumes:
+      - payment_data:/var/lib/postgresql/data
+
+  service-payment:
+    build: ./service-payment
+    ports:
+      - "8002:8000"
+    environment:
+      - AMQP_URL=amqp://guest:guest@rabbitmq:5672/
+      - POSTGRES_URL=postgresql://user:pass@db-payment:5432/payments
+    depends_on:
+      - rabbitmq
+      - db-payment
+
+  # Основной сервис (users, tasks) - можно добавить аналогично
+
+volumes:
+  payment_data:

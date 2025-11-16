@@ -1,17 +1,25 @@
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from routers import main, users, tasks
 
-app = FastAPI(title="JobDesk API", description="API for the JobDesk project")
+# Создание экземпляра приложения FastAPI
+app = FastAPI(
+    title="JobDesk API",
+    description="API for the JobDesk project",
+    version="1.0.0"
+)
 
-@app.get("/")
-def root():
-    html_content = "<h2>Hello METANIT.COM!</h2>"
-    return HTMLResponse(content=html_content)
+# Устанавливаем кодировку UTF-8 для всех ответов
+@app.middleware("http")
+async def add_charset_header(request, call_next):
+    response = await call_next(request)
+    if response.headers.get("content-type", "").startswith("application/json"):
+        response.headers["content-type"] = "application/json; charset=utf-8"
+    return response
 
-@app.get("/users/{username}")
-def get_user(username: str):
-    print(f"Received username: {username}")
-    return {"username": username}
+# Подключение роутеров
+app.include_router(main.router)
+app.include_router(users.router)
+app.include_router(tasks.router)
 
 
 
