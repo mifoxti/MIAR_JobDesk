@@ -64,14 +64,15 @@ jobs:
       - name: Build and push to Yandex Container Registry
         id: build
         run: |
-          IMAGE_TAG="${{ secrets.YC_REGISTRY_ID }}/service-notifications:${GITHUB_SHA}"
-          docker build -t $IMAGE_TAG ./service-notifications
-          docker push $IMAGE_TAG
+          IMAGE_TAG="cr.yandex/${{ secrets.YC_REGISTRY_ID }}/service-notifications:${{ github.sha }}"
+          docker build -t "$IMAGE_TAG" ./service-notifications
+          docker push "$IMAGE_TAG"
           echo "image_url=$IMAGE_TAG" >> $GITHUB_OUTPUT
 
   # === JOB 3: Деплой service-notifications в Yandex Serverless Container ===
   deploy-yc-serverless:
     needs: build-and-push-yc
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to Yandex Serverless Container
