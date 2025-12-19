@@ -3,3 +3,19 @@ uvicorn[standard]
 pydantic-settings
 aio-pika
 # alembic  # если понадобится для БД
+
+# Observability dependencies
+prometheus-fastapi-instrumentator
+structlog
+python-json-logger
+
+# Resilience patterns
+tenacity
+httpx
+aiohttp
+
+# Testing dependencies
+pytest
+pytest-asyncio
+httpx
+faker

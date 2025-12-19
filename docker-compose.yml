@@ -8,16 +8,6 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
 
-  service-notifications:
-    build: ./service-notifications
-    ports:
-      - "8001:8000"
-    environment:
-      - AMQP_URL=amqp://guest:guest@rabbitmq:5672/
-      - POSTGRES_URL=postgresql://user:pass@db:5432/notifications  # placeholder
-    depends_on:
-      - rabbitmq
-
   db-payment:
     image: postgres:13
     environment:
@@ -28,6 +18,11 @@ services:
       - "5433:5432"  # Different port to avoid conflict with main DB
     volumes:
       - payment_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d payments"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   service-payment:
     build: ./service-payment
@@ -37,10 +32,88 @@ services:
       - AMQP_URL=amqp://guest:guest@rabbitmq:5672/
       - POSTGRES_URL=postgresql://user:pass@db-payment:5432/payments
     depends_on:
-      - rabbitmq
-      - db-payment
+      db-payment:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    volumes:
+      - ./service-payment:/code
+    restart: on-failure
+    labels:
+      - "job=payment_service"
 
-  # Основной сервис (users, tasks) - можно добавить аналогично
+  service-notifications:
+    build: ./service-notifications
+    ports:
+      - "8001:8000"
+    environment:
+      - AMQP_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_started
+    volumes:
+      - ./service-notifications:/code
+    restart: on-failure
+    labels:
+      - "job=notification_service"
+
+  # ==================== OBSERVABILITY ====================
+  
+  # Prometheus - сбор и хранение метрик
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    depends_on:
+      - service-payment
+      - service-notifications
+
+  # Grafana - визуализация метрик и логов
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+
+  # Loki - хранение логов
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+
+  # Promtail - сбор логов из Docker контейнеров
+  promtail:
+    image: grafana/promtail:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./observability/promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
 
 volumes:
   payment_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:

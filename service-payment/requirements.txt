@@ -4,3 +4,14 @@ pydantic-settings
 aio-pika
 psycopg2-binary
 sqlalchemy>=1.4.0
+
+# Observability dependencies
+prometheus-fastapi-instrumentator
+structlog
+python-json-logger
+
+# Testing dependencies
+pytest
+pytest-asyncio
+httpx
+faker
